@@ -3,15 +3,31 @@ using Godot.Collections;
 
 namespace Hedgestock
 {
-    [Tool, GlobalClass, Icon("./VolumeControl.svg")]
+    [Icon("./VolumeControl.svg"), Tool, GlobalClass]
     public partial class VolumeControl : VBoxContainer
     {
         CheckBox MuteCheckBox;
         HSlider VolumeSlider;
 
         enum AudioBus { }
+
+        int _bus;
         [Export]
-        AudioBus Bus;
+        AudioBus Bus
+        {
+            get { return (AudioBus)_bus; }
+            set
+            {
+                _bus = (int)value;
+                if (MuteCheckBox != null)
+                {
+                    MuteCheckBox.ButtonPressed = !AudioServer.IsBusMute(_bus);
+                    MuteCheckBox.Text = AudioServer.GetBusName(_bus) + " Volume";
+                }
+                if (VolumeSlider != null)
+                    VolumeSlider.Value = AudioServer.GetBusVolumeLinear(_bus);
+            }
+        }
 
         public override void _ValidateProperty(Dictionary property)
         {
@@ -33,35 +49,41 @@ namespace Hedgestock
         public override void _Ready()
         {
             base._Ready();
-            MuteCheckBox = new()
+            if (MuteCheckBox == null)
             {
-                ButtonPressed = !AudioServer.IsBusMute((int)Bus),
-                Text = AudioServer.GetBusName((int)Bus) + " Volume",
-                Flat = true
-            };
-            MuteCheckBox.Connect(CheckBox.SignalName.Toggled, Callable.From<bool>(MuteVolume));
-            AddChild(MuteCheckBox);
-            MuteCheckBox.Owner = this;
+                MuteCheckBox = new()
+                {
+                    ButtonPressed = !AudioServer.IsBusMute(_bus),
+                    Text = AudioServer.GetBusName(_bus) + " Volume",
+                    Flat = true,
+                    Name = "MuteCheckBox",
+                };
+                MuteCheckBox.Connect(CheckBox.SignalName.Toggled, Callable.From<bool>(MuteVolume));
+                AddChild(MuteCheckBox, false, InternalMode.Front);
+            }
 
-            VolumeSlider = new()
+            if (VolumeSlider == null)
             {
-                MaxValue = 1,
-                Step = 0.01f,
-                Value = AudioServer.GetBusVolumeLinear((int)Bus),
-            };
-            VolumeSlider.Connect(HSlider.SignalName.ValueChanged, Callable.From<float>(VolumeChanged));
-            AddChild(VolumeSlider);
-            VolumeSlider.Owner = this;
+                VolumeSlider = new()
+                {
+                    MaxValue = 1,
+                    Step = 0.01f,
+                    Value = AudioServer.GetBusVolumeLinear(_bus),
+                    Name = "VolumeSlider",
+                };
+                VolumeSlider.Connect(HSlider.SignalName.ValueChanged, Callable.From<float>(VolumeChanged));
+                AddChild(VolumeSlider, false, InternalMode.Front);
+            }
         }
 
         private void MuteVolume(bool on)
         {
-            AudioServer.SetBusMute((int)Bus, !on);
+            AudioServer.SetBusMute(_bus, !on);
         }
 
         private void VolumeChanged(float volume)
         {
-            AudioServer.SetBusVolumeLinear((int)Bus, volume);
+            AudioServer.SetBusVolumeLinear(_bus, volume);
         }
     }
 }
